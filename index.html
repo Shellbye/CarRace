@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta name="author" content="shellbye">
+    <meta name="co-author" content="baybaylee">
+    <title>Car Race</title>
+    <style>
+        *{
+            padding: 0;
+            margin: 0;
+        }
+        .column {
+            width: 5px;
+            height: 5px;
+            border-left: 1px solid #000;
+            border-top:1px solid #000;
+            display: inline-block;
+        }
+        .last_col{
+            border-right:  1px solid #000;
+        }
+        .row {
+            margin-top: -12px;
+            padding-left: 10px;
+        }
+        .last_row{
+            border-bottom: 1px solid #000;;
+        }
+        #zone{
+            padding-top: 10px;
+            float: left;
+        }
+        #control{
+            margin-left: 5px;
+            margin-top: 7px;
+            float: left;
+            border: 1px solid #000;
+            height: 346px;
+            padding: 20px 10px 20px 10px;
+        }
+    </style>
+</head>
+<body onkeydown="keyDown()">
+<div id="zone">
+
+</div>
+<div id="control">
+    <label for="speed">
+        Current Speed:<input id="speed" value="" readonly>
+    </label>
+    <br>
+    <label for="score">
+        Current Score:<input id="score" value="" readonly>
+    </label>
+    <br>
+    <label for="time">
+        Time You used:<input id="time" value="" readonly>
+    </label>
+    <p>Press P or Space to Start/Pause</p>
+    <p>You can use both</p>
+    <p style="margin-left: 50px">↑↓←→</p>
+    <p>and</p>
+    <p style="margin-left: 55px">W S A D</p>
+    <P>to control.</P>
+    <br>
+    <button id="reTry" onclick="init()">reTry</button>
+    <br>
+    <p>By
+        <a href="http://baybaylee.github.io/" target="_blank">BaybayLee</a> &
+        <a href="http://shellbye.com" target="_blank">Shellbye</a>
+    </p>
+    <p>Source code is
+        <a href="https://github.com/Shellbye/CarRace" target="_blank">here</a>,
+        and demo is <a href="http://shellbye.com/CarRace/" target="_blank">here</a>
+    </p>
+</div>
+</body>
+<script>
+// left=37, up=38, right=39, down=40
+// http://www.retrojunkie.com/asciiart/vehicles/roads.htm
+// Bricks game
+/*
+ *   Car:
+ *    |0|
+ *  |1|2|3|
+ *    |4|
+ *  |5|6|7|
+ *
+ * */
+var enableWASD = true;
+var width = 30;
+var height = 60;
+var carHead;
+var newCarInterval;
+var autoMoveInterval;
+var timeCountInterval;
+var otherCars = [];
+var isStopped = false;
+var dropSpeed = 100;
+var createSpeed = 1000;
+var isOver = false;
+var score = 0;
+var timeCount = 0;
+window.onload = function () {
+    init();
+};
+function init(){
+    parameterInit();
+    console.log("start");
+    initMap(60, 120);
+    initCar(28,4);
+    newCompetitor();
+    setAllInterval();
+    document.getElementById("speed").value = 301 - dropSpeed;
+    document.getElementById("score").value = score;
+}
+function parameterInit(){
+    carHead = null;
+    otherCars = [];
+    isStopped = false;
+    dropSpeed = 100;
+    createSpeed = 1000;
+    isOver = false;
+    score = 0;
+    timeCount = 0;
+    clearAllInterval();
+}
+function setAllInterval(){
+    newCarInterval = setInterval("newCompetitor()", createSpeed);
+    autoMoveInterval = setInterval("autoMove()", dropSpeed);
+    timeCountInterval = setInterval("timeGrowth()", 1000);
+}
+function clearAllInterval(){
+    clearInterval(newCarInterval);
+    clearInterval(autoMoveInterval);
+    clearInterval(timeCountInterval);
+}
+function timeGrowth(){
+    timeCount++;
+    document.getElementById("time").value = timeCount;
+}
+function isGameOver(){
+    for(var i=0; i<otherCars.length; i++){
+        var oCar = otherCars[i];
+        if(parseInt(oCar.bodys[0].getAttribute("y")) > 8){
+            // start from this car, all other car is above it
+            // so the check is ok
+            return false;
+        }
+        for(var j=5; j<8; j++){
+            var tempDiv = oCar.bodys[j];
+            for(var k=0; k<=3; k++){
+                if(k==2){
+                    continue;
+                }
+                if(tempDiv == carHead.bodys[k]){
+                    console.log("failed!");
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+function autoMove(){
+    for(var i=0; i<otherCars.length; i++){
+        var car = otherCars[i];
+        car.cMove();
+        if(car.isOuted){
+            // remove this car from the list
+            otherCars.splice(i, 1);
+            score++;
+            document.getElementById("score").value = score;
+        }
+        if(isGameOver()){
+            alert("Game Over!");
+            isOver = true;
+            clearAllInterval();
+            return;
+        }
+    }
+}
+function newCompetitor(){
+    var x = Math.floor(Math.random() * 100%width);
+    if(x==1){
+        x++;
+    }else if(x==width){
+        x--
+    }
+    var newCar = new CarNode(x, height, 1);
+    otherCars.push(newCar);
+}
+function resetSpeed(){
+    clearInterval(autoMoveInterval);
+    autoMoveInterval = setInterval("autoMove()", dropSpeed);
+    document.getElementById("speed").value = 301 - dropSpeed;
+}
+function keyDown() {
+    if(isOver){
+        return;
+    }
+    // left=37, up=38, right=39, down=40
+    // A=65, W=87, D=68, S=83
+    var event = arguments.callee.caller.arguments[0] || event;
+    var code = event.which;
+    if ((code >= 37 && code <= 40) || (enableWASD && (code == 65 || code == 87 || code == 68 || code == 83))) {
+        if(code == 38 || code == 87){
+            dropSpeed -= 5;
+            if(dropSpeed <= 0){
+                dropSpeed = 0;
+            }
+            resetSpeed();
+            return;
+        }else if(code == 40 || code == 83){
+            if(dropSpeed >= 300){
+                dropSpeed = 300;
+                return;
+            }
+            dropSpeed += 5;
+            resetSpeed();
+            return;
+        }
+        meMove(code);
+    }else if(code == 80 || code == 32){
+        // 'P'=80, 'Space'=32
+        if(!isStopped){
+            console.log("stop");
+            isStopped = true;
+            clearAllInterval();
+        }else{
+            console.log("start again");
+            isStopped = false;
+            setAllInterval();
+        }
+    }
+}
+function meMove(code) {
+    if((carHead.bodys[0].getAttribute("x") == "2" && code == 37) ||
+            (carHead.bodys[0].getAttribute("x") == (width -1).toString() && code == 39)){
+        return;
+    }
+    for(var i=0; i<8; i++){
+        var oldX = parseInt(carHead.bodys[i].getAttribute("x"));
+        var oldY = parseInt(carHead.bodys[i].getAttribute("y"));
+        var newDiv;
+        if(code == 37) {
+            if (i == 0 || i == 3 || i == 4 || i == 7) {
+                carHead.bodys[i].style.background = "";
+            }
+            newDiv = document.querySelector('[x="' + (oldX - 1).toString() + '"][y="' + oldY + '"]');
+        }else if(code == 39){
+            if(i == 0 || i == 1 || i == 4 || i == 5){
+                carHead.bodys[i].style.background = "";
+            }
+            newDiv = document.querySelector('[x="' + (oldX + 1).toString() + '"][y="' + oldY + '"]');
+        }
+        newDiv.style.background = "red";
+        carHead.bodys[i] = newDiv;
+    }
+}
+function CarNode(x, y, index){
+    if((index == 0) && (x + 1 > width || x - 1 < 0 || y > height || y - 3 < 0)){
+        console.log("car position illegal!");
+        return;
+    }
+    this.bodys = new Array(7);
+    for(var i=0; i<8; i++){
+        var div = null;
+        if(i==0){
+            div = document.querySelector('[x="' + x.toString() + '"][y="' + y.toString() + '"]');
+        }else if(i==1){
+            div = document.querySelector('[x="' + (x-1).toString() + '"][y="' + (y-1).toString() + '"]');
+        }else if(i==2){
+            div = document.querySelector('[x="' + (x).toString() + '"][y="' + (y-1).toString() + '"]');
+        }else if(i==3){
+            div = document.querySelector('[x="' + (x+1).toString() + '"][y="' + (y-1).toString() + '"]');
+        }else if(i==4){
+            div = document.querySelector('[x="' + (x).toString() + '"][y="' + (y-2).toString() + '"]');
+        }else if(i==5){
+            div = document.querySelector('[x="' + (x-1).toString() + '"][y="' + (y-3).toString() + '"]');
+        }else if(i==6){
+            div = document.querySelector('[x="' + (x).toString() + '"][y="' + (y-3).toString() + '"]');
+        }else if(i==7){
+            div = document.querySelector('[x="' + (x+1).toString() + '"][y="' + (y-3).toString() + '"]');
+        }
+        if(index == 0){
+            div.style.background = "red";
+        }else{
+            div.style.background = "black";
+        }
+        this.bodys[i] = div;
+    }
+    this.isOuted = false;
+    this.cMove = function(){
+        if(this.bodys[0].getAttribute("y") == "4"){
+            this.isOuted = true;
+            for(var j=0; j<8; j++){
+                this.bodys[j].style.background = "";
+            }
+            return;
+        }
+        for(var i=0; i<8; i++){
+            var oldX = this.bodys[i].getAttribute("x");
+            var oldY = parseInt(this.bodys[i].getAttribute("y"));
+            var newDiv = document.querySelector('[x="' + oldX + '"][y="' + (oldY - 1).toString() + '"]');
+            if(i == 0 || i == 1 || i == 3 || i == 5 || i == 7){
+                this.bodys[i].style.background = "";
+            }
+            newDiv.style.background = "black";
+            this.bodys[i] = newDiv;
+        }
+    }
+}
+function initCar(x, y){
+    carHead = new CarNode(x,y,0);
+}
+function initMap() {
+    var zone = document.getElementById("zone");
+    zone.innerHTML = "";
+    for (var i = height; i >= 1; i--) {
+        var row = document.createElement("div");
+        row.setAttribute("class", "row");
+        initRow(row, i.toString());
+        zone.appendChild(row);
+    }
+}
+function initRow(map, y) {
+    for (var i = 1; i <= width; i++) {
+        var common = document.createElement("div");
+        var className = "column";
+        if(i == width){
+            className += " last_col";
+        }
+        if(y == 1){
+            className += " last_row";
+        }
+        common.setAttribute("class", className);
+        common.setAttribute("x", i.toString());
+        common.setAttribute("y", y);
+        map.appendChild(common);
+    }
+}
+</script>
+</html>
